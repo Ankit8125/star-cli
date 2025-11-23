@@ -20,15 +20,22 @@ const CLIENT_ID = process.env.GITHUB_CLIENT_ID
 const CONFIG_DIR = path.join(os.homedir(), ".better-auth")
 const TOKEN_FILE = path.join(CONFIG_DIR, "token.json")
 
-export async function loginAction() {
+export async function loginAction(opts) {
 
   const options = z.object({
     serverUrl: z.string().optional(),
     clientId: z.string().optional()
   })
 
-  const serverUrl = options.serverUrl || URL
-  const clientId = options.clientId || CLIENT_ID
+  const serverUrl = options.serverUrl || URL;
+  const clientId = options.clientId || CLIENT_ID;
+
+  console.log("printing client id ", process.env.GITHUB_CLIENT_ID)
+
+  if(!clientId){
+    logger.error("Missing Client ID. Please set GITHUB_CLIENT_ID in .env or use --client-id")
+    process.exit(1)
+  }
 
   intro(chalk.bold("🔒Better Auth CLI Login"))
 
@@ -41,6 +48,7 @@ export async function loginAction() {
       message: "You are already loggedIn. Do you want to login again?",
       initialValue: false
     })
+
     // The confirm prompt returns one of three things: 
     // true (User selected Yes), false (User selected No), symbol (User pressed Ctrl+C to cancel || and this specific case is detected by isCancel())
 
@@ -48,6 +56,63 @@ export async function loginAction() {
       cancel("Login Cancelled")
       process.exit(0)
     }
+  }
+
+  const authClient = createAuthClient({
+    baseURL: serverUrl,
+    plugins: [deviceAuthorizationClient()],
+  });
+ 
+  const spinner = yoctoSpinner({text: "Requesting device authorization..."})
+  spinner.start()
+
+  try {
+    const { data, error } = await authClient.device.code({
+      client_id: clientId,
+      scope: "openid profile email",
+    });
+    spinner.stop()
+    
+    if(error || !data){
+      logger.error(`Failed to request device authorization`)
+      console.log(error)
+      process.exit(1)
+    }
+
+    const {
+      device_code,
+      user_code,
+      verification_uri,
+      verification_uri_complete,
+      expires_in,
+      interval,
+    } = data
+
+    console.log(chalk.cyan("Device Authorization Required"))
+    console.log(`Please visit ${chalk.underline.blue(verification_uri || verification_uri_complete)}`)
+    console.log(`Enter Code: ${chalk.bold.green(user_code)}`)
+
+    const shouldOpen = await confirm({
+      message: "Open browser automatically",
+      initialValue: true
+    })
+
+    if(!isCancel(shouldOpen) && shouldOpen){
+      const urlToOpen = verification_uri || verification_uri_complete
+      await open(urlToOpen)
+    }
+
+    console.log(
+      chalk.gray(
+        `Waiting for authorization (expires in ${Math.floor(expires_in/60)} minutes)...`
+      )
+    )
+
+  } catch (error) {
+    spinner.stop()
+    logger.error("An unexpected error occurred")
+    console.error(error)
+    process.exit(1)
   }
 }
 
