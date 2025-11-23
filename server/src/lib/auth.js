@@ -6,10 +6,14 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
-  socialProviders: { 
-    github: { 
-      clientId: process.env.GITHUB_CLIENT_ID, 
-      clientSecret: process.env.GITHUB_CLIENT_SECRET, 
-    }, 
-  }, 
-}); 
+  trustedOrigins: ["http://localhost:3000"],
+  socialProviders: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    },
+  },
+});
+
+// basePath: This is typically the path where the Better Auth routes are mounted. It will be overridden if there is a path component within baseURL.
+// (Default: /api/auth)
