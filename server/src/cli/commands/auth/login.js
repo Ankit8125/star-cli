@@ -21,6 +21,72 @@ const CLIENT_ID = process.env.GITHUB_CLIENT_ID
 export const CONFIG_DIR = path.join(os.homedir(), ".better-auth")
 export const TOKEN_FILE = path.join(CONFIG_DIR, "token.json")
 
+
+async function pollForToken(authClient, deviceCode, clientId, initialIntervalValue) {
+
+  let pollingInterval = initialIntervalValue
+  const spinner = yoctoSpinner({ text: "", color: "cyan" })
+  let dots = 0;
+
+  return new Promise((resolve, reject) => {
+    const poll = async() => {
+      dots = (dots+1)%4
+      spinner.text = chalk.gray(`Polling for authorization${".".repeat(dots)}${" ".repeat(3-dots)}`)
+      
+      if(!spinner.isSpinning) spinner.start()
+
+      try {
+        const { data, error } = await authClient.device.token({
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+          device_code: deviceCode,
+          client_id: clientId,
+          fetchOptions: {
+            headers: {
+              "user-agent": `My CLI`,
+            },
+          },
+        });
+
+        if (data?.access_token) {
+          console.log(
+            chalk.bold.yellow(`Your access token: ${data.access_token}`)
+          );
+
+          spinner.stop()
+          resolve(data)
+          return;
+        } else if (error) {
+          switch (error.error) {
+            case "authorization_pending":
+              // Continue polling
+              break;
+            case "slow_down":
+              pollingInterval += 5;
+              break;
+            case "access_denied":
+              console.error("Access was denied by the user");
+              return;
+            case "expired_token":
+              console.error("The device code has expired. Please try again.");
+              return;
+            default:
+              spinner.stop()
+              logger.error(`Error: ${error.error_description}`);
+              process.exit(1)
+          }
+        }
+      } catch (error) {
+        spinner.stop()
+        logger.error(`Error: ${error.error_description}`);
+        process.exit(1)
+      }
+      setTimeout(poll, pollingInterval * 1000);
+    }
+    poll();
+  })
+  
+};
+
 export async function loginAction(opts) {
 
   const options = z.object({
@@ -132,70 +198,68 @@ export async function loginAction(opts) {
   }
 }
 
-async function pollForToken(authClient, deviceCode, clientId, initialIntervalValue) {
+export async function logoutAction(){
+  intro(chalk.bold("Logout"))
 
-  let pollingInterval = initialIntervalValue
-  const spinner = yoctoSpinner({ text: "", color: "cyan" })
-  let dots = 0;
+  const token = await getStoredToken()
 
-  return new Promise((resolve, reject) => {
-    const poll = async() => {
-      dots = (dots+1)%4
-      spinner.text = chalk.gray(`Polling for authorization${".".repeat(dots)}${" ".repeat(3-dots)}`)
-      
-      if(!spinner.isSpinning) spinner.start()
+  if(!token){
+    console.log(chalk.yellow("You're not logged in."))
+    process.exit(0)
+  }
 
-      try {
-        const { data, error } = await authClient.device.token({
-          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-          device_code: deviceCode,
-          client_id: clientId,
-          fetchOptions: {
-            headers: {
-              "user-agent": `My CLI`,
-            },
-          },
-        });
-
-        if (data?.access_token) {
-          console.log(
-            chalk.bold.yellow(`Your access token: ${data.access_token}`)
-          );
-
-          spinner.stop()
-          resolve(data)
-          return;
-        } else if (error) {
-          switch (error.error) {
-            case "authorization_pending":
-              // Continue polling
-              break;
-            case "slow_down":
-              pollingInterval += 5;
-              break;
-            case "access_denied":
-              console.error("Access was denied by the user");
-              return;
-            case "expired_token":
-              console.error("The device code has expired. Please try again.");
-              return;
-            default:
-              spinner.stop()
-              logger.error(`Error: ${error.error_description}`);
-              process.exit(1)
-          }
-        }
-      } catch (error) {
-        spinner.stop()
-        logger.error(`Error: ${error.error_description}`);
-        process.exit(1)
-      }
-      setTimeout(poll, pollingInterval * 1000);
-    }
-    poll();
+  const shouldLogout = await confirm({
+    message: "Are you sure you want to logout?",
+    initialValue: false
   })
-  
-};
+
+  if(isCancel(shouldLogout) || !shouldLogout){
+    cancel("Logout Cancelled")
+    process.exit(0)
+  }
+
+  const cleared = await clearStoredToken()
+
+  if(cleared){
+    outro(chalk.green("✅ Successfully logged out!"))
+  } else {
+    console.log(chalk.yellow("⚠️ Could not clear token file."))
+  }
+}
+
+export async function whoAmIAction(){
+  const token = await requireAuth()
+
+  if(!token?.access_token){
+    console.log("No access token found. Please login.")
+    process.exit(1)
+  }
+
+  const user = await primsa.user.findFirst({
+    where: {
+      sessions: {
+        some: {
+          token: token.access_token
+        }
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true
+    }
+  })
+
+  // Output user session info
+  console.log(
+    chalk.bold.greenBright(`\n
+      User: ${user.name}
+      Email: ${user.email}
+      ID: ${user.id}`
+    )
+  )
+}
 
 // Commander Setup
 export const login = new Command("login")
@@ -203,3 +267,12 @@ export const login = new Command("login")
   .option("--server-url <url>", "The Better Auth server URL", URL)
   .option("--client-id <id>", "The OAuth Client ID", CLIENT_ID)
   .action(loginAction)
+
+export const logout = new Command("logout")
+  .description("Logout and clear stored credentials")
+  .action(logoutAction)
+
+export const whoami = new Command("whoami")
+  .description("Show current authenticated user")
+  .option("--server-url <url>", "The Better Auth server URL", URL)
+  .action(whoAmIAction)

@@ -29,9 +29,43 @@ const DeviceApprovalPage = () => {
     router.push("/sign-in")
   }
 
-  const handleApprove = async () => {}
+  const handleApprove = async () => {
+    setIsProcessing({approve: true, deny: false});
+    try {
+      toast.loading("Approving device...", {id: "loading"})
+      await authClient.device.approve({
+        userCode: userCode!,
+      });
+      // Show success message
+      toast.dismiss("loading")
+      toast.success("Device approved successfully")
+      router.push("/")
+
+    } catch (error) {
+      toast.error("Failed to approve device");
+    } finally {
+      setIsProcessing({approve: false, deny: false});
+    }
+  };
   
-  const handleDeny = async () => {}
+  const handleDeny = async () => {
+    setIsProcessing({approve: false, deny: true});
+    try {
+      toast.loading("Denying device...", {id: "deny"})
+      await authClient.device.approve({
+        userCode: userCode!,
+      });
+      // Show success message
+      toast.dismiss("deny")
+      toast.success("Device denied successfully")
+      router.push("/")
+
+    } catch (error) {
+      toast.error("Failed to deny device");
+    } finally {
+      setIsProcessing({approve: false, deny: false});
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background font-sans">

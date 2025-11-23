@@ -1,4 +1,6 @@
 import { TOKEN_FILE, CONFIG_DIR } from "../cli/commands/auth/login.js";
+import fs from "fs/promises"
+import chalk from "chalk"
 
 export async function getStoredToken(){
   try {
@@ -80,3 +82,4 @@ export async function requireAuth(){
 
   return token
 }
+
