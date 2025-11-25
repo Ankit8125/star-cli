@@ -1,15 +1,21 @@
 "use client"
 
-import Image from "next/image";
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Spinner } from "@/components/ui/spinner";
+import { useEffect } from "react";
 
 export default function Home() {
 
   const { data, isPending } = authClient.useSession()
   const router = useRouter()
+
+  useEffect(() => {
+    if (!isPending && !data?.session && !data?.user) {
+      router.push("/sign-in")
+    }
+  }, [isPending, data, router])
 
   if (isPending) {
     return (
@@ -17,10 +23,6 @@ export default function Home() {
         <Spinner />
       </div>
     )
-  }
-
-  if (!data?.session && !data?.user) {
-    router.push("/sign-in")
   }
 
   return (

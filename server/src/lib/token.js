@@ -27,9 +27,9 @@ export async function storeToken(token){
       created_at: new Date().toISOString(),
     }
 
-    const token = JSON.stringify(tokenData, null, 2)
+    const newToken = JSON.stringify(tokenData, null, 2)
 
-    await fs.writeFile(TOKEN_FILE, token, "utf-8")
+    await fs.writeFile(TOKEN_FILE, newToken, "utf-8")
     return true
   } catch (error) {
     console.error(

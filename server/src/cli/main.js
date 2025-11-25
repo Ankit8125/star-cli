@@ -5,7 +5,7 @@ import dotenv from "dotenv"
 import chalk from "chalk"
 import figlet from "figlet"
 import { Command } from "commander"
-import { login, logout, whoAmI } from "./commands/auth/login.js"
+import { login, logout, whoami } from "./commands/auth/login.js"
 
 dotenv.config()
 

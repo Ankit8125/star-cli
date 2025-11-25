@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { authClient } from '@/lib/auth-client'
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { CheckCircle, XCircle, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 
@@ -17,16 +17,18 @@ const DeviceApprovalPage = () => {
   const userCode = searchParams.get("user_code")
   const [isProcessing, setIsProcessing] = useState({approve: false, deny: false})
 
+  useEffect(() => {
+    if(!isPending && !data?.session && !data?.user){
+      router.push("/sign-in")
+    }
+  }, [isPending, data, router])
+  
   if(isPending){
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-background">
         <Spinner />
       </div>
     )
-  }
-
-  if(!data?.session && !data?.user){
-    router.push("/sign-in")
   }
 
   const handleApprove = async () => {
