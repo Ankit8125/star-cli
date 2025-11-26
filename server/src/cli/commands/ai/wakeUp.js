@@ -79,6 +79,9 @@ const wakeUpAction = async () => {
       console.log(chalk.yellow("Agentic mode coming soon..."))
       break
   }
+
+  
+
 }
 
 export const wakeUp = new Command("wakeup")
