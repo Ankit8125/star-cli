@@ -6,6 +6,7 @@ import chalk from "chalk"
 
 // TODO: Rewrite this service in latest v3 version. It is in v2 version.
 export class AIService {
+  
   constructor() {
     if(!config.googleApiKey){ // TODO: Add OpenAI rule as well.
       throw new Error("GOOGLE_API_KEY is not set in env")
@@ -15,6 +16,7 @@ export class AIService {
       apiKey: config.googleApiKey
     })
   }
+
   /**
    * Send a message and get streaming response
    * @param {Array} - Array of messages
