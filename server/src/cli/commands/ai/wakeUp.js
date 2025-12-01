@@ -4,6 +4,7 @@ import yoctoSpinner from "yocto-spinner"
 import { getStoredToken } from "../../../lib/token.js"
 import { prisma } from "../../../lib/db.js"
 import { select } from "@clack/prompts"
+import { startChat } from "../../chat/chat-with-ai.js"
 
 const wakeUpAction = async () => {
   const token = await getStoredToken()
@@ -50,7 +51,7 @@ const wakeUpAction = async () => {
     options: [
       {
         value: "chat",
-        label: "chat",
+        label: "Chat",
         hint: "Simple chat with AI"
       },
       {
@@ -69,6 +70,7 @@ const wakeUpAction = async () => {
   switch (choice) {
     case "chat":
       console.log("Chat is selected")
+      startChat("chat")
       break
     
     case "tool":

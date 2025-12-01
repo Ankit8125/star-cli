@@ -10,7 +10,8 @@ export class ChatService {
    */
 
   async createConversation(userId, mode = "chat", title = null) {
-    return prisma.conversation.create({
+
+    return await prisma.conversation.create({
       data: {
         userId,
         mode,

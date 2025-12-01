@@ -49,6 +49,7 @@ export async function clearStoredToken(){
 }
 
 export async function isTokenExpired() {
+
   const token = await getStoredToken()
   
   if(!token || !token.expires_at){
@@ -63,6 +64,7 @@ export async function isTokenExpired() {
 }
 
 export async function requireAuth(){
+  
   const token = await getStoredToken()
 
   if(!token){
