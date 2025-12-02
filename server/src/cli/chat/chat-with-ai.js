@@ -18,6 +18,7 @@ marked.use(
     firstHeading: chalk.magenta.underline.bold,
     hr: chalk.reset,
     listitem: chalk.reset,
+    list: chalk.reset,
     paragraph: chalk.reset,
     strong: chalk.bold,
     em: chalk.italic,
@@ -161,8 +162,6 @@ async function getAIResponse(conversationId){
       fullResponse += chunk
     })
 
-    // console.log("\n Printing result: ", result)
-
     // Render the complete markdown response
     console.log("\n")
     const renderedMarkdown = marked.parse(fullResponse)
@@ -204,7 +203,7 @@ async function chatLoop(conversation){
 
   while(true){
     const userInput = await text({
-      message: chalk.blue("Your message"),
+      message: chalk.blue("💭 Your message"),
       placeholder: "Type your message...",
       validate(value){
         if(!value || value.trim().length === 0){
