@@ -51,3 +51,47 @@ export function getEnabledTools(){
     return undefined
   }
 }
+
+export function toggleTool(toolId){
+  const tool = availableTools.find((t) => t.id === toolId)
+
+  if(tool){
+    tool.enabled = !tool.enabled
+  
+    console.log(chalk.gray(`[DEBUG] Tool ${toolId} toggled to ${tool.enabled}`))
+    return tool.enabled
+  }
+
+  console.log(chalk.red(`[DEBUG] Tool ${toolId} not found`))
+  return false
+}
+
+export function enableTools(toolIds){
+  console.log(chalk.gray('[DEBUG] enableTools called with: '), toolIds)
+
+  availableTools.forEach(tool => {
+    const wasEnabled = tool.enabled;
+    tool.enabled = toolIds.includes(tool.id)
+
+    if(tool.enabled !== wasEnabled){
+      console.log(chalk.gray(`[DEBUG] ${tool.id}: ${wasEnabled} -> ${tool.enabled}`))
+    }
+  })  
+
+  const enabledCount = availableTools.filter(t => t.enabled).length
+  console.log(chalk.gray(`[DEBUG] Total tools enabled: ${enabledCount}/${availableTools.length}`))
+}
+
+export function getEnabledToolNames() {
+  const names = availableTools.filter(t => t.enabled).map(t => t.name)
+  console.log(chalk.gray('[DEBUG] getEnabledToolNames returning: '), names)
+  return names
+}
+
+export function resetTools() {
+  availableTools.forEach(tool => {
+    tool.enabled = false;
+  })
+
+  console.log(chalk.gray('[DEBUG] All tools have been reset (disabled).'))
+}
