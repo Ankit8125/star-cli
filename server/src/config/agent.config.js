@@ -69,8 +69,6 @@ async function createApplicationFiles(baseDir, folderName, files){
     printSystem(chalk.green(`✅ ${file.path}`))
   }
 
-  
-
   return appDir
 }
 
