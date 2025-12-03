@@ -2,7 +2,7 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import chalk from 'chalk'
 import { generateObject } from 'ai'
-import z from 'zod'
+import { z } from 'zod'
 
 const ApplicationSchema = z.object({
   folderName: z.string().describe("Star-Case folder name for the application"),
@@ -72,43 +72,50 @@ async function createApplicationFiles(baseDir, folderName, files){
   return appDir
 }
 
+// Generate application using structured output
 export async function generateApplication(description, aiService, cwd = process.cwd()){
   try {
     printSystem(chalk.cyan("\n🤖 Agent Mode: Generating your application...\n"))
     printSystem(chalk.gray(`Request: ${description}\n`))
     printSystem(chalk.magenta("🤖 Agent Response: \n"))
 
-    const { object: application } = await generateObject({ // returns "object" which we are calling "application"
+    const result = await generateObject({ // returns "object" which we are calling "application"
       model: aiService.model,
       schema: ApplicationSchema,
       prompt: `Create a complete, production-ready application for ${description}
       
       CRITICAL REQUIREMENTS:
       1. Generate all files needed for the application to run
-      2. Include package.json with all dependencies and correct version
+      2. Include package.json with all dependencies and correct versions (if needed)
       3. Include README.md with setup configurations
-      4. Include configuration files (.gitignore, etc.)
+      4. Include configuration files (.gitignore, etc.) if needed
       5. Write clean, well-commented, production-ready code
       6. Include error handling and input validation
       7. Use modern JavaScript/TypeScript best practices
       8. Make sure all imports and paths are correct
       9. NO PLACEHOLDERS - everything must be complete and working
+      10. For simple HTML/CSS/JS projects, you can skip package.json if not needed
 
       Provide:
       - A meaningful star-case folder name
       - All necessary files with complete content
-      - Setup commands (cd folder, npm install, npm run dev, etc.)
-      - All dependencies with version
+      - Setup commands (fpr example: cd folder, npm install, npm run dev, or just open index.html)
+      - Make it visually appealing and functional
       `
     })
+
+    const application = result.object
 
     printSystem(chalk.green(`\n✅ Generated: ${application.folderName}\n`)) // coming from zod schema
     printSystem(chalk.gray(`Description: ${application.description}\n`))
 
-    if(application.files.length === 0){
+    if(!application.files || application.files.length === 0){
       throw new Error("No files were generated")
     }
 
+    printSystem(chalk.green(`Files: ${application.files.length}\n`))
+
+    // Display file tree
     displayFileTree(application.files, application.folderName)
 
     // Create application directory and files
@@ -120,7 +127,8 @@ export async function generateApplication(description, aiService, cwd = process.
     printSystem(chalk.green.bold(`\n✨ Application created successfully!\n`))
     printSystem(chalk.cyan(`📁 Location: ${chalk.bold(appDir)}\n`))
 
-    if(application.setupCommands.length > 0){
+    // Display setup commands
+    if(application.setupCommands && application.setupCommands.length > 0){
       printSystem(chalk.cyan("🗒️ Next Steps:\n"))
       printSystem(chalk.white("```bash"))
 
@@ -129,6 +137,9 @@ export async function generateApplication(description, aiService, cwd = process.
       })
 
       printSystem(chalk.white("```\n"))
+    }
+    else {
+      printSystem(chalk.yellow("ℹ️ No setup commands provided\n"))
     }
 
     return {
@@ -141,6 +152,9 @@ export async function generateApplication(description, aiService, cwd = process.
 
   } catch (error) {
     printSystem(chalk.red(`\n❌ Error generating application: ${error.message}\n`))
+    if(error.stack){
+      printSystem(chalk.dim(error.stack + "\n"))
+    }
     throw error
   }
 }
