@@ -171,7 +171,6 @@ async function agentLoop(conversation) {
       }
     }
   }
-
 }
 
 export async function startAgentChat(conversationId = null){

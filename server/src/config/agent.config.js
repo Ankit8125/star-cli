@@ -15,8 +15,7 @@ const ApplicationSchema = z.object({
   ),
   setupCommands: z.array(
     z.string().describe("Bash commands to setup and run (ex: npm install, npm run dev)")
-  ),
-  dependencies: z.record(z.string()).optional().describe("NPM dependencies with versions")
+  )
 })
 
 function printSystem(message){
