@@ -14,7 +14,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
+  "type": "module", 
   "dependencies": {
     "@ai-sdk/google": "^2.0.43",
     "@ai-sdk/openai": "^2.0.72",

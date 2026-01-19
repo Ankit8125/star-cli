@@ -187,8 +187,9 @@ export async function loginAction(opts) {
 
       outro(chalk.green("Login successfull!"))
 
-      console.log(chalk.gray(`\n Token saved to: ${TOKEN_FILE}`))
+      console.log(chalk.gray(`Token saved to: ${TOKEN_FILE}`))
       console.log(chalk.gray("You can now use AI commands without logging in again. \n"))
+      console.log(chalk.gray("Type `star wakeup` to start gazing.\n"))
     }
 
   } catch (error) {

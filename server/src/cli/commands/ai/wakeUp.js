@@ -1,9 +1,9 @@
 import chalk from "chalk"
 import { Command } from "commander"
 import yoctoSpinner from "yocto-spinner"
-import { getStoredToken } from "../../../lib/token.js"
-import { prisma } from "../../../lib/db.js"
-import { select } from "@clack/prompts"
+import { getStoredToken, clearStoredToken } from "../../../lib/token.js"
+import { apiClient } from "../../lib/api.js"
+import { select, confirm, isCancel } from "@clack/prompts"
 import { startChat } from "../../chat/chat-with-ai.js"
 import { startToolChat } from "../../chat/chat-with-ai-tools.js"
 import { startAgentChat } from "../../chat/chat-with-ai-agent.js"
@@ -23,21 +23,13 @@ const wakeUpAction = async () => {
   // TODO: Implement Redis cache here to store the currently logged in user data instead of calling DB always. 
   // So my CLI will always fetch from that cached DB instead of calling actual DB. As we are going to call this `wakeup` comman many times
   
-  const user = await prisma.user.findFirst({ // Why 'findFirst' ? Because we do not have any unique field to identify user.
-    where: {
-      sessions: {
-        some: {
-          token: token.access_token
-        }
-      }
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true
-    }
-  })
+  let user = null;
+  try {
+    const sessionData = await apiClient("/api/me");
+    user = sessionData?.user;
+  } catch (error) {
+    // Handle error or user not found
+  }
 
   spinner.stop()
 
@@ -64,8 +56,13 @@ const wakeUpAction = async () => {
       {
         value: "agent",
         label: "Agentic Mode",
-        hint: "Advanced AI Agent (TODO)"
+        hint: "Advanced AI Agent"
       },
+      {
+        value: "logout",
+        label: "Logout",
+        hint: "Logout from Star CLI"
+      }
     ]
   })
 
@@ -84,10 +81,37 @@ const wakeUpAction = async () => {
       console.log(chalk.yellow("Agentic mode coming soon..."))
       await startAgentChat()
       break
+
+    case "logout":
+      await handleLogout()
+      break
+  }
+}
+
+async function handleLogout() {
+  const shouldLogout = await confirm({
+    message: "Are you sure you want to logout?",
+    initialValue: false
+  })
+
+  if (isCancel(shouldLogout) || !shouldLogout) {
+    console.log(chalk.yellow("Logout cancelled."))
+    return
   }
 
-  
+  const spinner = yoctoSpinner({ text: "Logging out..." })
+  spinner.start()
 
+  const cleared = await clearStoredToken()
+
+  spinner.stop()
+
+  if (cleared) {
+    console.log(chalk.green("✅ Successfully logged out!"))
+    console.log(chalk.gray("Run 'star login' to authenticate again.\n"))
+  } else {
+    console.log(chalk.yellow("⚠️ Could not clear token file."))
+  }
 }
 
 export const wakeUp = new Command("wakeup")
