@@ -5,7 +5,7 @@ import yoctoSpinner from "yocto-spinner"
 import { AIService } from "../ai/google-service.js"
 import { ChatService } from "../../service/chat.service.js"
 import { getStoredToken } from "../../lib/token.js"
-import { prisma } from "../../lib/db.js"
+import { apiClient } from "../lib/api.js"
 import { generateApplication } from "../../config/agent.config.js"
 
 const aiService = new AIService()
@@ -13,21 +13,20 @@ const chatService = new ChatService()
 
 async function getUserFromToken(){
   const token = await getStoredToken()
-  
+
   if(!token?.access_token){
     throw new Error("Not authenticated. Please run 'star login' first.")
   }
 
   const spinner = yoctoSpinner({ text: "Authenticating..." }).start()
-  const user = await prisma.user.findFirst({
-    where: {
-      sessions: {
-        some: {
-          token: token.access_token
-        }
-      }
-    }
-  })
+  let user
+  try {
+    const sessionData = await apiClient("/api/me")
+    user = sessionData?.user
+  } catch (err) {
+    spinner.error("Auth check failed.")
+    throw new Error(`Could not reach auth server: ${err.message}`)
+  }
 
   if(!user){
     spinner.error("User not found.")
@@ -135,7 +134,7 @@ async function agentLoop(conversation) {
     try {
       const result = await generateApplication(userInput, aiService, process.cwd())
 
-      if(result && result.success){
+      if(result?.success){
         const responseMessage = `Generated application: ${result.folderName}\n` + 
         `Files created: ${result.files.length}\n` + 
         `Location: ${result.appDir}\n` +

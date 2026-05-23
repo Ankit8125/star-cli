@@ -56,11 +56,13 @@ const DeviceApprovalPage = () => {
     setIsProcessing({approve: false, deny: true});
     try {
       toast.loading("Denying device...", {id: "deny"})
-      await authClient.device.approve({
+      // Use the deny method, not approve. better-auth's device-authorization
+      // plugin exposes both — calling approve here was the original bug.
+      await authClient.device.deny({
         userCode: userCode!,
       });
       toast.dismiss("deny")
-      toast.success("Device denied successfully")
+      toast.success("Device denied")
       router.push("/")
 
     } catch (error) {

@@ -7,7 +7,7 @@ import { markedTerminal } from "marked-terminal"
 import { AIService } from "../ai/google-service.js"
 import { ChatService } from "../../service/chat.service.js"
 import { getStoredToken } from "../../lib/token.js"
-import { prisma } from "../../lib/db.js"
+import { apiClient } from "../lib/api.js"
 
 marked.use(
   markedTerminal({
@@ -40,15 +40,14 @@ async function getUserFromToken(){
   }
 
   const spinner = yoctoSpinner({ text: "Authenticating..." }).start()
-  const user = await prisma.user.findFirst({
-    where: {
-      sessions: {
-        some: {
-          token: token.access_token
-        }
-      }
-    }
-  })
+  let user
+  try{
+    const sessionData = await apiClient("/api/me")
+    user = sessionData?.user
+  } catch (err) {
+    spinner.error("Auth check failed.")
+    throw new Error(`Could not reach auth server: ${err.message}`)
+  }
 
   if(!user){
     spinner.error("User not found.")

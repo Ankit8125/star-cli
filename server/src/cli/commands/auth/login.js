@@ -4,15 +4,14 @@ import { createAuthClient } from "better-auth/client"
 import { deviceAuthorizationClient } from "better-auth/client/plugins"
 import chalk from "chalk"
 import { Command } from "commander"
-import fs from "node:fs/promises"
 import open from "open"
 import os from "os"
 import path from "path"
 import yoctoSpinner from "yocto-spinner"
 import * as z from "zod"
 import dotenv from "dotenv"
-import { prisma } from "../../../lib/db.js"
-import { getStoredToken, isTokenExpired, storeToken } from "../../../lib/token.js"
+import { apiClient } from "../../lib/api.js"
+import { getStoredToken, isTokenExpired, storeToken, clearStoredToken, requireAuth } from "../../../lib/token.js"
 
 dotenv.config()
 
@@ -48,10 +47,6 @@ async function pollForToken(authClient, deviceCode, clientId, initialIntervalVal
         });
 
         if (data?.access_token) {
-          console.log(
-            chalk.bold.yellow(`Your access token: ${data.access_token}`)
-          );
-
           spinner.stop()
           resolve(data)
           return;
@@ -219,6 +214,16 @@ export async function logoutAction(){
     process.exit(0)
   }
 
+  // Invalidate the session server-side before clearing the local token file.
+  // Without this, the session row in DB stays valid until expiresAt and a
+  // stolen token.json remains usable.
+  try {
+    await apiClient("/api/auth/sign-out", { method: "POST" })
+  } catch (err) {
+    // Server unreachable, expired token, etc. — proceed with local cleanup anyway.
+    console.log(chalk.gray("Could not reach server to invalidate session; clearing local token only."))
+  }
+
   const cleared = await clearStoredToken()
 
   if(cleared){
@@ -229,37 +234,24 @@ export async function logoutAction(){
 }
 
 export async function whoAmIAction(){
-  const token = await requireAuth()
+  await requireAuth()
 
-  if(!token?.access_token){
-    console.log("No access token found. Please login.")
+  try {
+    const sessionData = await apiClient("/api/me")
+    const user = sessionData?.user
+
+    if(!user){
+      console.log(chalk.red("Could not resolve current user. Try `star login`."))
+      process.exit(1)
+    }
+
+    console.log(
+      chalk.bold.greenBright(`\n      User: ${user.name}\n      Email: ${user.email}\n      ID: ${user.id}\n`)
+    )
+  } catch (err) {
+    console.log(chalk.red(`Failed to fetch user: ${err.message}`))
     process.exit(1)
   }
-
-  const user = await primsa.user.findFirst({
-    where: {
-      sessions: {
-        some: {
-          token: token.access_token
-        }
-      }
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true
-    }
-  })
-
-  // Output user session info
-  console.log(
-    chalk.bold.greenBright(`\n
-      User: ${user.name}
-      Email: ${user.email}
-      ID: ${user.id}`
-    )
-  )
 }
 
 // Commander Setup

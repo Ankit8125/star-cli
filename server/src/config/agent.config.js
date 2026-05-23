@@ -56,6 +56,14 @@ function displayFileTree(files, folderName){
 async function createApplicationFiles(baseDir, folderName, files){
   const appDir = path.join(baseDir, folderName)
 
+  // Refuse to overwrite an existing directory. `mkdir({ recursive: true})`
+  // silently succeeds on existing dirs, which means subsequent fs.writeFile
+  // calls would overwrite any colliding files. Fail loud instead.
+  const exists = await fs.stat(appDir).then(() => true).catch(() => false)
+  if(exists){
+    throw new Error(`Directory ${folderName} already exists at ${baseDir}. Refusing to overwrite.`)  
+  }
+
   await fs.mkdir(appDir, { recursive: true })
   printSystem(chalk.cyan(`\n📁 Created directory: ${folderName}/`))
 

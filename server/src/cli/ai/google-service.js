@@ -1,20 +1,17 @@
-import { google } from '@ai-sdk/google';
-import { generateObject, streamText } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { generateObject, streamText, stepCountIs } from 'ai';
 import { config } from "../../config/google.config.js"
 import chalk from "chalk"
 
-
-// TODO: Rewrite this service in latest v3 version. It is in v2 version.
 export class AIService {
-  
+
   constructor() {
-    if(!config.googleApiKey){ // TODO: Add OpenAI rule as well.
-      throw new Error("GOOGLE_API_KEY is not set in env")
+    if(!config.googleApiKey){
+      throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set in env")
     }
 
-    this.model = google(config.model, {
-      apiKey: config.googleApiKey
-    })
+    const provider = createGoogleGenerativeAI({ apiKey: config.googleApiKey })
+    this.model = provider(config.model)
   }
 
   /**
@@ -35,11 +32,13 @@ export class AIService {
       
       if(tools && Object.keys(tools).length > 0){
         streamConfig.tools = tools
-        streamConfig.maxSteps = 5 // Allow up to 5 tool call steps
+        streamConfig.stopWhen = stepCountIs(5) // AI SDK v5: stopWhen replaces maxSteps
 
-        console.log(
-          chalk.gray(`[DEBUG] Tools enabled: ${Object.keys(tools).join(", ")}`)
-        )
+        if(process.env.DEBUG){
+          console.log(
+            chalk.gray(`[DEBUG] Tools enabled: ${Object.keys(tools).join(", ")}`)
+          )
+        }
       }
 
       const result = streamText(streamConfig)
@@ -53,23 +52,24 @@ export class AIService {
         }
       }
 
-      const fullResult = result
+      // In AI SDK v5 these are Promises on the StreamTextResult, not synchronous values
+      const [steps, finishReason, usage] = await Promise.all([
+        result.steps,
+        result.finishReason,
+        result.totalUsage,
+      ])
 
       const toolCalls = []
       const toolResults = []
 
-      if(fullResult.steps && Array.isArray(fullResult.steps)){
-        for(const step of fullResult.steps){
+      if(Array.isArray(steps)){
+        for(const step of steps){
           if(step.toolCalls && step.toolCalls.length > 0){
             for(const toolCall of step.toolCalls){
               toolCalls.push(toolCall)
-
-              if(onToolCall){
-                onToolCall(toolCall)
-              }
+              if(onToolCall) onToolCall(toolCall)
             }
           }
-
           if(step.toolResults && step.toolResults.length > 0){
             toolResults.push(...step.toolResults)
           }
@@ -78,11 +78,11 @@ export class AIService {
 
       return {
         content: fullResponse,
-        finishResponse: fullResult.finishReason,
-        usage: fullResult.usage,
+        finishReason,
+        usage,
         toolCalls,
         toolResults,
-        steps: fullResponse.steps
+        steps,
       }
       
     } catch (error) {
@@ -99,12 +99,7 @@ export class AIService {
    */
 
   async getMessage(messages, tools=undefined){
-    let fullResponse = ""
-    
-    const result = await this.sendMessage(messages, (chunk) => {
-      fullResponse += chunk
-    }, tools)
-
+    const result = await this.sendMessage(messages, null, tools)
     return result.content
   }
 
