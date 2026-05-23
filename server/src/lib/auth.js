@@ -18,7 +18,8 @@ export const auth = betterAuth({
     deviceAuthorization({ 
       verificationUri: "/device", 
       expiresIn: "30m",
-      interval: "5s"
+      interval: "5s",
+      schema: {}
     }), 
   ],
 });
