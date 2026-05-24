@@ -155,6 +155,8 @@ app.post("/api/chat/stream", requireSession, async (req, res) => {
     console.error("Server AI stream error:", error.message);
     res.status(500).json({ error: "Failed to generate AI response" });
   }
+});
+
 // Define the structured schema for Agentic application generation
 const ApplicationSchema = z.object({
   folderName: z.string().describe("Star-Case folder name for the application"),
