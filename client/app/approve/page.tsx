@@ -18,9 +18,22 @@ const DeviceApprovalPage = () => {
 
   useEffect(() => {
     if(!isPending && !data?.session && !data?.user){
-      router.push("/sign-in")
+      // Preserve the device code through the sign-in detour so we return
+      // here afterwards. Without this, the CLI polls forever because the code
+      // user lands on "/" after Github OAuth and never approves the code.  
+      const returnTo = `/approve${userCode ? `?user_code=${userCode}` : ""}`
+      router.push(`/sign-in?callbackURL=${encodeURIComponent(returnTo)}`)
     }
-  }, [isPending, data, router])
+  }, [isPending, data, router, userCode])
+
+  useEffect(() => {
+    if (userCode && data?.session && data?.user) {
+      const formattedCode = userCode.trim().replace(/-/g, "").toUpperCase();
+      authClient.device({
+        query: { user_code: formattedCode },
+      }).catch((err) => console.error("Error claiming device:", err));
+    }
+  }, [data, userCode]);
   
   if(isPending){
     return (
