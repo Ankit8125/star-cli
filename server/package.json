@@ -1,10 +1,10 @@
 {
-  "name": "star-cli",
+  "name": "@ankit8125/star-cli",
   "version": "1.0.0",
   "description": "Star CLI - Bring Your Own Key (BYOK) Terminal AI Assistant",
   "main": "src/cli/main.js",
   "bin": {
-    "star": "./src/cli/main.js"
+    "star": "src/cli/main.js"
   },
   "files": [
     "src/cli",
