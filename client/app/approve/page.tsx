@@ -3,11 +3,11 @@
 import { Spinner } from "@/components/ui/spinner"
 import { authClient } from '@/lib/auth-client'
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { CheckCircle, XCircle, Terminal, Sparkles, Shield, User, Monitor, Loader2, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 
-const DeviceApprovalPage = () => {
+const DeviceApprovalContent = () => {
 
   const {data, isPending} = authClient.useSession()
 
@@ -235,6 +235,18 @@ const DeviceApprovalPage = () => {
         </p>
       </div>
     </div>
+  )
+}
+
+const DeviceApprovalPage = () => {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white">
+        <Loader2 className="w-10 h-10 animate-spin text-cyan-400" />
+      </div>
+    }>
+      <DeviceApprovalContent />
+    </Suspense>
   )
 }
 

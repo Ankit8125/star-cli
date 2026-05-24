@@ -2,10 +2,10 @@
 
 import { authClient } from '@/lib/auth-client'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Shield, Terminal, Sparkles, ArrowRight, Loader2, AlertCircle, Lock } from 'lucide-react'
 
-const DeviceAuthorizationPage = () => {
+const DeviceAuthorizationContent = () => {
 
   const [userCode, setUserCode] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -198,6 +198,18 @@ const DeviceAuthorizationPage = () => {
         </p>
       </div>
     </div>
+  )
+}
+
+const DeviceAuthorizationPage = () => {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white">
+        <Loader2 className="w-10 h-10 animate-spin text-cyan-400" />
+      </div>
+    }>
+      <DeviceAuthorizationContent />
+    </Suspense>
   )
 }
 

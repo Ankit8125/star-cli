@@ -4,9 +4,9 @@ import { LoginForm } from '@/components/login-form'
 import { Spinner } from '@/components/ui/spinner'
 import { authClient } from '@/lib/auth-client'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 
-const Page = () => {
+const SignInPageContent = () => {
   const { data, isPending } = authClient.useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,6 +30,18 @@ const Page = () => {
     <>
       <LoginForm />
     </>
+  )
+}
+
+const Page = () => {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col justify-center items-center h-screen">
+        <Spinner />
+      </div>
+    }>
+      <SignInPageContent />
+    </Suspense>
   )
 }
 

@@ -1,11 +1,16 @@
 {
-  "name": "server",
+  "name": "star-cli",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Star CLI - Bring Your Own Key (BYOK) Terminal AI Assistant",
+  "main": "src/cli/main.js",
   "bin": {
     "star": "./src/cli/main.js"
   },
+  "files": [
+    "src/cli",
+    "src/config/tool.config.js",
+    "src/config/agent.config.js"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/index.js",

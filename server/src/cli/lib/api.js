@@ -1,6 +1,6 @@
 import { getStoredToken } from "../../lib/token.js";
 
-const BASE_URL = process.env.BETTER_AUTH_URL || "http://localhost:5000";
+const BASE_URL = process.env.STAR_BACKEND_URL || process.env.BETTER_AUTH_URL || "http://localhost:5000";
 
 export async function apiClient(endpoint, options = {}) {
   const token = await getStoredToken();

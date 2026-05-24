@@ -3,6 +3,7 @@ import path from 'path'
 import chalk from 'chalk'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import { apiClient } from "../cli/lib/api.js"
 
 const ApplicationSchema = z.object({
   folderName: z.string().describe("Star-Case folder name for the application"),
@@ -80,16 +81,19 @@ async function createApplicationFiles(baseDir, folderName, files){
 }
 
 // Generate application using structured output
-export async function generateApplication(description, aiService, cwd = process.cwd()){
+export async function generateApplication(description, aiService, cwd = process.cwd(), runMode = "local"){
   try {
     printSystem(chalk.cyan("\n🤖 Agent Mode: Generating your application...\n"))
     printSystem(chalk.gray(`Request: ${description}\n`))
     printSystem(chalk.magenta("🤖 Agent Response: \n"))
 
-    const result = await generateObject({ // returns "object" which we are calling "application"
-      model: aiService.model,
-      schema: ApplicationSchema,
-      prompt: `Create a complete, production-ready application for ${description}
+    let application;
+
+    if (runMode === "cloud") {
+      application = await apiClient("/api/chat/structured", {
+        method: "POST",
+        body: JSON.stringify({
+          prompt: `Create a complete, production-ready application for ${description}
       
       CRITICAL REQUIREMENTS:
       1. Generate all files needed for the application to run
@@ -109,9 +113,35 @@ export async function generateApplication(description, aiService, cwd = process.
       - Setup commands (fpr example: cd folder, npm install, npm run dev, or just open index.html)
       - Make it visually appealing and functional
       `
-    })
+        })
+      });
+    } else {
+      const result = await generateObject({ // returns "object" which we are calling "application"
+        model: aiService.model,
+        schema: ApplicationSchema,
+        prompt: `Create a complete, production-ready application for ${description}
+        
+        CRITICAL REQUIREMENTS:
+        1. Generate all files needed for the application to run
+        2. Include package.json with all dependencies and correct versions (if needed)
+        3. Include README.md with setup configurations
+        4. Include configuration files (.gitignore, etc.) if needed
+        5. Write clean, well-commented, production-ready code
+        6. Include error handling and input validation
+        7. Use modern JavaScript/TypeScript best practices
+        8. Make sure all imports and paths are correct
+        9. NO PLACEHOLDERS - everything must be complete and working
+        10. For simple HTML/CSS/JS projects, you can skip package.json if not needed
 
-    const application = result.object
+        Provide:
+        - A meaningful star-case folder name
+        - All necessary files with complete content
+        - Setup commands (fpr example: cd folder, npm install, npm run dev, or just open index.html)
+        - Make it visually appealing and functional
+        `
+      })
+      application = result.object
+    }
 
     printSystem(chalk.green(`\n✅ Generated: ${application.folderName}\n`)) // coming from zod schema
     printSystem(chalk.gray(`Description: ${application.description}\n`))

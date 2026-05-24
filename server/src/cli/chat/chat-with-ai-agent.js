@@ -3,55 +3,43 @@ import boxen from "boxen"
 import { text, isCancel, cancel, intro, outro, confirm } from "@clack/prompts"
 import yoctoSpinner from "yocto-spinner"
 import { AIService } from "../ai/google-service.js"
-import { ChatService } from "../../service/chat.service.js"
-import { getStoredToken } from "../../lib/token.js"
-import { apiClient } from "../lib/api.js"
+import { LocalChatService } from "../lib/local-chat.service.js"
+import { CloudChatService } from "../lib/cloud-chat.service.js"
 import { generateApplication } from "../../config/agent.config.js"
+import { apiClient } from "../lib/api.js"
 
-const aiService = new AIService()
-const chatService = new ChatService()
-
-async function getUserFromToken(){
-  const token = await getStoredToken()
-
-  if(!token?.access_token){
-    throw new Error("Not authenticated. Please run 'star login' first.")
+async function getUserContext(runMode) {
+  if (runMode === "cloud") {
+    const spinner = yoctoSpinner({ text: "Verifying cloud authentication..." }).start()
+    try {
+      const sessionData = await apiClient("/api/me")
+      const user = sessionData?.user
+      if (!user) {
+        spinner.error("Cloud session invalid.")
+        throw new Error("Cloud session not found. Please run 'star login'.")
+      }
+      spinner.success(`Connected as ${user.name} (SaaS)`)
+      return user
+    } catch (err) {
+      spinner.error("Connection failed.")
+      throw new Error(`Could not connect to SaaS server: ${err.message}`)
+    }
+  } else {
+    return { id: "local-user", name: "User" }
   }
-
-  const spinner = yoctoSpinner({ text: "Authenticating..." }).start()
-  let user
-  try {
-    const sessionData = await apiClient("/api/me")
-    user = sessionData?.user
-  } catch (err) {
-    spinner.error("Auth check failed.")
-    throw new Error(`Could not reach auth server: ${err.message}`)
-  }
-
-  if(!user){
-    spinner.error("User not found.")
-    throw new Error("User not found. Please login again.")
-  }
-
-  spinner.success(`Welcome back, ${user.name}!`)
-  return user
 }
 
-async function initConversation(userId, conversationId=null, mode="agent"){
+async function initConversation(chatService, userId, conversationId = null, mode = "agent") {
   const conversation = await chatService.getOrCreateConversation(userId, conversationId, mode)
 
-  // Display the conversation info in a box
   const conversationInfo = boxen(
     `${chalk.bold("Conversation")}: ${conversation.title}\n` + 
     `${chalk.gray("ID: " + conversation.id)}\n` +
-    `${chalk.gray("Mode:")} ${chalk.magenta("Agent(Code Generator)")}\n` + 
+    `${chalk.gray("Storage:")} ${chatService instanceof CloudChatService ? "Cloud Sync" : "Local Database"}\n` + 
     `${chalk.gray("Working Directory:")} ${process.cwd()}`,
      {
       padding: 1,
-      margin: { 
-        top: 1, 
-        bottom: 1
-      },
+      margin: { top: 1, bottom: 1 },
       borderStyle: "round",
       borderColor: "magenta",
       title: "🤖 Agent Mode",
@@ -60,15 +48,10 @@ async function initConversation(userId, conversationId=null, mode="agent"){
   )
 
   console.log(conversationInfo)
-
   return conversation
 }
 
-async function saveMessage(conversationId, role, content){
-  return await chatService.addMessage(conversationId, role, content)
-}
-
-async function agentLoop(conversation) {
+async function agentLoop(chatService, conversation, aiService, runMode) {
   const helpBox = boxen(
     `${chalk.cyan.bold("What can the agent do?")}\n\n` + 
     `${chalk.gray('• Generate complete applications from descriptions')}\n` +
@@ -81,9 +64,7 @@ async function agentLoop(conversation) {
     `${chalk.white('• "Make a weather app using OpenWeatherMap API"')}\n\n` +
     `${chalk.gray('Type "exit" to end the session')}\n`, {
     padding: 1,
-    margin: {
-      bottom: 1
-    },
+    margin: { bottom: 1 },
     borderStyle: "round",
     borderColor: "cyan",
     title: "💡 Agent Instructions"
@@ -91,36 +72,28 @@ async function agentLoop(conversation) {
 
   console.log(helpBox)
 
-  while(true){
+  while (true) {
     const userInput = await text({
       message: chalk.magenta("🤖 What would you like to build?"),
       placeholder: "Describe your application...",
       validate(value) {
-        if(!value || value.trim().length === 0){
+        if (!value || value.trim().length === 0) {
           return "Description cannot be empty."
         }
-        if(value.trim().length < 10){
+        if (value.trim().length < 10) {
           return "Please provide more details (at least 10 characters)"
         }
       }
     })
 
-    if(isCancel(userInput)){
-      console.log(chalk.yellow("\n👋 Agent session cancelled\n"))
-      process.exit(0)
-    }
-
-    if(userInput.toLowerCase() === "exit"){
+    if (isCancel(userInput) || userInput.toLowerCase() === "exit") {
       console.log(chalk.yellow("\n👋 Agent session ended\n"))
       break;
     }
 
     const userBox = boxen(chalk.white(userInput), {
       padding: 1,
-      margin: {
-        top: 1,
-        bottom: 1
-      },
+      margin: { top: 1, bottom: 1 },
       borderStyle: "round",
       borderColor: "blue",
       title: "👤 Your Request",
@@ -129,53 +102,51 @@ async function agentLoop(conversation) {
     
     console.log(userBox)
 
-    await saveMessage(conversation.id, "user", userInput)
+    await chatService.addMessage(conversation.id, "user", userInput)
 
     try {
-      const result = await generateApplication(userInput, aiService, process.cwd())
+      const result = await generateApplication(userInput, aiService, process.cwd(), runMode)
 
-      if(result?.success){
+      if (result?.success) {
         const responseMessage = `Generated application: ${result.folderName}\n` + 
         `Files created: ${result.files.length}\n` + 
         `Location: ${result.appDir}\n` +
         `Setup commands:\n${result.commands.join("\n")}`
 
-        await saveMessage(conversation.id, "assistant", responseMessage)
+        await chatService.addMessage(conversation.id, "assistant", responseMessage)
 
-        // Ask if user wants to generate another app
         const continuePrompt = await confirm({
           message: chalk.cyan("Would you like to generate another application?"),
           initialValue: false
         })
 
-        if(isCancel(continuePrompt) || !continuePrompt){
+        if (isCancel(continuePrompt) || !continuePrompt) {
           console.log(chalk.yellow("\nGreat! Check your new application.\n"))
           break
         }
-      }
-      else {
+      } else {
         throw new Error("Generation returned no result.")
       }
     } catch (error) {
       console.log(chalk.red(`\n❌ Error: ${error.message}\n`))     
-      await saveMessage(conversation.id, "assistant", `Error: ${error.message}`)
+      await chatService.addMessage(conversation.id, "assistant", `Error: ${error.message}`)
       
       const retry = await confirm({
         message: chalk.cyan("Would you like to try again?"),
         initialValue: true
       })
 
-      if(isCancel(retry) || !retry){
+      if (isCancel(retry) || !retry) {
         break
       }
     }
   }
 }
 
-export async function startAgentChat(conversationId = null){
+export async function startAgentChat(conversationId = null, runMode = "local") {
   try {
     intro(boxen(
-      chalk.bold.magenta("🤖 Star AI - Agent Mode \n\n") + 
+      chalk.bold.magenta(`🤖 Star AI - Agent Mode (${runMode === "cloud" ? "SaaS" : "Local"}) \n\n`) + 
       chalk.gray("Autonomous Application Generator"), {
         padding: 1,
         borderStyle: "double",
@@ -183,7 +154,8 @@ export async function startAgentChat(conversationId = null){
       }
     ))
 
-    const user = await getUserFromToken()
+    const chatService = runMode === "cloud" ? new CloudChatService() : new LocalChatService()
+    const user = await getUserContext(runMode)
 
     // Warning about file system access
     const shouldContinue = await confirm({
@@ -191,14 +163,16 @@ export async function startAgentChat(conversationId = null){
       initialValue: true
     })
 
-    if(isCancel(shouldContinue) || !shouldContinue){
+    if (isCancel(shouldContinue) || !shouldContinue) {
       cancel(chalk.yellow("Agent mode cancelled"))
       process.exit(0)
     }
 
-    const conversation = await initConversation(user.id, conversationId)
+    const conversation = await initConversation(chatService, user.id, conversationId)
     
-    await agentLoop(conversation)
+    // Only instantiate local AIService if we are in local mode
+    const aiService = runMode === "local" ? new AIService() : null
+    await agentLoop(chatService, conversation, aiService, runMode)
 
     outro(chalk.green.bold("\n✨ Thanks for using Agent Mode!"))
 
@@ -209,7 +183,6 @@ export async function startAgentChat(conversationId = null){
       borderStyle: "round",
       borderColor: "red"
     })
-
     console.log(errorBox)
     process.exit(1)
   }

@@ -15,7 +15,7 @@ import { getStoredToken, isTokenExpired, storeToken, clearStoredToken, requireAu
 
 dotenv.config()
 
-const URL = "http://localhost:5000"
+const URL = process.env.STAR_BACKEND_URL || "http://localhost:5000"
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID
 export const CONFIG_DIR = path.join(os.homedir(), ".better-auth")
 export const TOKEN_FILE = path.join(CONFIG_DIR, "token.json")

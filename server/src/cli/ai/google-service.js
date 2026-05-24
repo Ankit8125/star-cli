@@ -1,17 +1,20 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject, streamText, stepCountIs } from 'ai';
-import { config } from "../../config/google.config.js"
+import { getApiKey, getModel } from "../lib/config.js";
 import chalk from "chalk"
 
 export class AIService {
 
   constructor() {
-    if(!config.googleApiKey){
-      throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set in env")
+    const apiKey = getApiKey();
+    const modelName = getModel();
+
+    if (!apiKey) {
+      throw new Error("Google Gemini API Key is not set. Please run 'star config set-key <key>' or 'star wakeup' to configure it.")
     }
 
-    const provider = createGoogleGenerativeAI({ apiKey: config.googleApiKey })
-    this.model = provider(config.model)
+    const provider = createGoogleGenerativeAI({ apiKey })
+    this.model = provider(modelName)
   }
 
   /**
@@ -32,7 +35,7 @@ export class AIService {
       
       if(tools && Object.keys(tools).length > 0){
         streamConfig.tools = tools
-        streamConfig.stopWhen = stepCountIs(5) // AI SDK v5: stopWhen replaces maxSteps
+        streamConfig.maxSteps = 5
 
         if(process.env.DEBUG){
           console.log(

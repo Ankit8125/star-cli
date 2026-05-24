@@ -7,6 +7,7 @@ import figlet from "figlet"
 import { Command } from "commander"
 import { login, logout, whoami } from "./commands/auth/login.js"
 import { wakeUp } from "./commands/ai/wakeUp.js"
+import { configCommand } from "./commands/config/config.js"
 
 dotenv.config()
 
@@ -21,17 +22,18 @@ async function main() {
     )
   )
 
-  console.log(chalk.red("A cli based AI Tool \n"))
+  console.log(chalk.magenta("Bring Your Own Key (BYOK) AI Assistant \n"))
 
   const program = new Command("star")
 
   program
     .version("0.0.1")
     .description("Star CLI - A CLI based AI Tool")
+    .addCommand(configCommand)
+    .addCommand(wakeUp)
     .addCommand(login)
     .addCommand(logout)
     .addCommand(whoami)
-    .addCommand(wakeUp)
 
   // Default action that shows help 
   program.action(() => {
